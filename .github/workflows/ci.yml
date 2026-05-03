@@ -42,11 +42,11 @@ jobs:
             -Dsonar.host.url=https://sonarcloud.io \
             -Dsonar.token=$SONAR_TOKEN
 
-      # List target files
+      # Verify build output
       - name: Verify build output
         run: ls -al target/
 
-      # Upload JAR to JFrog Artifactory (FIXED VERSION)
+      # Upload JAR to JFrog Artifactory
       - name: Upload to JFrog
         env:
           JFROG_TOKEN: ${{ secrets.JFROG_TOKEN }}
@@ -64,3 +64,37 @@ jobs:
             "$JFROG_URL/artifactory/libs-release-local/$(basename "$JAR_FILE")"
 
           echo "Upload successful"
+
+      # -----------------------------
+      # 🚀 DEPLOY TO DEV SERVER
+      # -----------------------------
+      - name: Deploy to DEV
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: 34.205.255.248
+          username: ubuntu
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script: |
+            echo "Deploying to DEV..."
+            pkill -f "java" || true
+            rm -f app.jar
+            wget -O app.jar ${{ secrets.JFROG_URL }}/artifactory/libs-release-local/app.jar
+            nohup java -jar app.jar > app.log 2>&1 &
+            echo "DEV deployment done"
+
+      # -----------------------------
+      # 🚀 DEPLOY TO PROD SERVER
+      # -----------------------------
+      - name: Deploy to PROD
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: 44.203.140.107
+          username: ubuntu
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script: |
+            echo "Deploying to PROD..."
+            pkill -f "java" || true
+            rm -f app.jar
+            wget -O app.jar ${{ secrets.JFROG_URL }}/artifactory/libs-release-local/app.jar
+            nohup java -jar app.jar > app.log 2>&1 &
+            echo "PROD deployment done"
