@@ -13,7 +13,7 @@ jobs:
     - name: Checkout Repository
       uses: actions/checkout@v3
 
-    # ---------------- Setup Java (FIXED: Java 17 required) ----------------
+    # ---------------- Setup Java (REQUIRED: Java 17 for SonarCloud) ----------------
     - name: Setup Java 17
       uses: actions/setup-java@v3
       with:
@@ -31,11 +31,12 @@ jobs:
     - name: Build with Maven
       run: mvn clean package -DskipTests
 
-    # ---------------- SonarQube / SonarCloud Scan ----------------
+    # ---------------- SonarCloud Analysis ----------------
     - name: SonarQube Scan
       run: |
         mvn sonar:sonar \
           -Dsonar.projectKey=VAISHALI311_devops-final-project \
+          -Dsonar.organization=vaishali311 \
           -Dsonar.host.url=https://sonarcloud.io \
           -Dsonar.login=${{ secrets.SONAR_TOKEN }}
 
