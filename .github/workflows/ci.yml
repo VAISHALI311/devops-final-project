@@ -44,7 +44,7 @@ jobs:
     - name: Check Build Output
       run: ls -al target/
 
-    # ---------------- Upload to JFrog Artifactory ----------------
+    # ---------------- Upload Artifact to JFrog ----------------
     - name: Upload to JFrog Artifactory
       run: |
         JAR_FILE=$(ls target/*.jar | head -n 1)
