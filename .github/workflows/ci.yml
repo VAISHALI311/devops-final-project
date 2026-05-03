@@ -2,36 +2,36 @@ name: CI-CD Pipeline
 
 on:
   push:
-    branches: [ "main" ]
+    branches: ["main"]
 
 jobs:
   build-analyze-deploy:
     runs-on: ubuntu-latest
 
     steps:
-      # Checkout code
+      # 1. Checkout code
       - name: Checkout Repository
         uses: actions/checkout@v4
 
-      # Setup Java
+      # 2. Setup Java
       - name: Set up JDK 17
         uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: 17
 
-      # Cache Maven dependencies
-      - name: Cache Maven
+      # 3. Cache Maven
+      - name: Cache Maven dependencies
         uses: actions/cache@v4
         with:
           path: ~/.m2
           key: ${{ runner.os }}-maven
 
-      # Build project
+      # 4. Build project
       - name: Build with Maven
         run: mvn clean package -DskipTests
 
-      # SonarCloud Analysis
+      # 5. SonarCloud Analysis
       - name: SonarCloud Scan
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
@@ -42,12 +42,12 @@ jobs:
             -Dsonar.host.url=https://sonarcloud.io \
             -Dsonar.token=$SONAR_TOKEN
 
-      # Verify build output
+      # 6. Verify build
       - name: Verify build output
         run: ls -al target/
 
-      # Upload JAR to JFrog Artifactory
-      - name: Upload to JFrog
+      # 7. Upload to JFrog
+      - name: Upload to JFrog Artifactory
         env:
           JFROG_TOKEN: ${{ secrets.JFROG_TOKEN }}
           JFROG_URL: ${{ secrets.JFROG_URL }}
@@ -61,40 +61,27 @@ jobs:
           curl -f \
             -H "Authorization: Bearer $JFROG_TOKEN" \
             -T "$JAR_FILE" \
-            "$JFROG_URL/artifactory/libs-release-local/$(basename "$JAR_FILE")"
+            "$JFROG_URL/artifactory/libs-release-local/app.jar"
 
           echo "Upload successful"
 
-      # -----------------------------
-      # 🚀 DEPLOY TO DEV SERVER
-      # -----------------------------
-      - name: Deploy to DEV
+      # 8. Deploy to DEV via SSH (FIXED)
+      - name: Deploy to DEV Server
         uses: appleboy/ssh-action@v1.0.3
         with:
-          host: 34.205.255.248
+          host: ${{ secrets.DEV_HOST }}
           username: ubuntu
           key: ${{ secrets.SSH_PRIVATE_KEY }}
+          port: 22
           script: |
-            echo "Deploying to DEV..."
-            pkill -f "java" || true
-            rm -f app.jar
-            wget -O app.jar ${{ secrets.JFROG_URL }}/artifactory/libs-release-local/app.jar
-            nohup java -jar app.jar > app.log 2>&1 &
-            echo "DEV deployment done"
+            echo "Starting DEV deployment..."
 
-      # -----------------------------
-      # 🚀 DEPLOY TO PROD SERVER
-      # -----------------------------
-      - name: Deploy to PROD
-        uses: appleboy/ssh-action@v1.0.3
-        with:
-          host: 44.203.140.107
-          username: ubuntu
-          key: ${{ secrets.SSH_PRIVATE_KEY }}
-          script: |
-            echo "Deploying to PROD..."
-            pkill -f "java" || true
+            pkill -f "app.jar" || true
+
             rm -f app.jar
+
             wget -O app.jar ${{ secrets.JFROG_URL }}/artifactory/libs-release-local/app.jar
-            nohup java -jar app.jar > app.log 2>&1 &
-            echo "PROD deployment done"
+
+            nohup java -jar app.jar > app.log 2>&1 & disown
+
+            echo "DEV deployment completed successfully"
