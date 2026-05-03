@@ -13,7 +13,7 @@ jobs:
     - name: Checkout Repository
       uses: actions/checkout@v3
 
-    # ---------------- Setup Java (REQUIRED: Java 17 for SonarCloud) ----------------
+    # ---------------- Setup Java 17 ----------------
     - name: Setup Java 17
       uses: actions/setup-java@v3
       with:
@@ -44,14 +44,14 @@ jobs:
     - name: Check Build Output
       run: ls -al target/
 
-    # ---------------- Upload Artifact to JFrog ----------------
+    # ---------------- Upload to JFrog Artifactory ----------------
     - name: Upload to JFrog Artifactory
       run: |
         JAR_FILE=$(ls target/*.jar | head -n 1)
         echo "Uploading $JAR_FILE"
 
-        curl -H "Authorization: Bearer ${{ secrets.JFROG_TOKEN }}" \
-        -T $JAR_FILE \
+        curl -f -H "Authorization: Bearer ${{ secrets.JFROG_TOKEN }}" \
+        -T "$JAR_FILE" \
         "${{ secrets.JFROG_URL }}/libs-release-local/demo-app-${{ github.run_number }}.jar"
 
     # ---------------- Success Message ----------------
