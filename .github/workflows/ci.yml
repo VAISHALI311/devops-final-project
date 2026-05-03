@@ -25,9 +25,9 @@ jobs:
           java-version: 17
 
       # =========================
-      # 3. Cache Maven
+      # 3. Cache Maven Dependencies
       # =========================
-      - name: Cache Maven dependencies
+      - name: Cache Maven
         uses: actions/cache@v4
         with:
           path: ~/.m2
@@ -53,7 +53,7 @@ jobs:
             -Dsonar.token=$SONAR_TOKEN
 
       # =========================
-      # 6. Verify Build
+      # 6. Verify Build Output
       # =========================
       - name: Verify build output
         run: ls -al target/
@@ -80,7 +80,7 @@ jobs:
           echo "Upload successful"
 
       # =========================
-      # 8. Deploy to DEV (FIXED SSH STABILITY)
+      # 8. Deploy to DEV (STABLE FIX)
       # =========================
       - name: Deploy to DEV Server
         uses: appleboy/ssh-action@v1.0.3
@@ -98,7 +98,7 @@ jobs:
 
             wget -O app.jar ${{ secrets.JFROG_URL }}/artifactory/libs-release-local/app.jar
 
-            # 🔥 FIX: fully detach process from SSH session
-            setsid nohup java -jar app.jar > app.log 2>&1 < /dev/null &
+            # 🔥 FINAL FIX: fully detached execution
+            nohup bash -c "java -jar app.jar > app.log 2>&1" </dev/null &
 
-            echo "DEV deployment completed successfully"
+            echo "DEV deployment triggered successfully"
