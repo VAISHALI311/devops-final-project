@@ -9,29 +9,39 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # 1. Checkout code
+      # =========================
+      # 1. Checkout Code
+      # =========================
       - name: Checkout Repository
         uses: actions/checkout@v4
 
+      # =========================
       # 2. Setup Java
+      # =========================
       - name: Set up JDK 17
         uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: 17
 
+      # =========================
       # 3. Cache Maven
+      # =========================
       - name: Cache Maven dependencies
         uses: actions/cache@v4
         with:
           path: ~/.m2
           key: ${{ runner.os }}-maven
 
-      # 4. Build
+      # =========================
+      # 4. Build Project
+      # =========================
       - name: Build with Maven
         run: mvn clean package -DskipTests
 
-      # 5. SonarCloud
+      # =========================
+      # 5. SonarCloud Analysis
+      # =========================
       - name: SonarCloud Scan
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
@@ -42,11 +52,15 @@ jobs:
             -Dsonar.host.url=https://sonarcloud.io \
             -Dsonar.token=$SONAR_TOKEN
 
-      # 6. Verify build
+      # =========================
+      # 6. Verify Build
+      # =========================
       - name: Verify build output
         run: ls -al target/
 
+      # =========================
       # 7. Upload to JFrog
+      # =========================
       - name: Upload to JFrog
         env:
           JFROG_TOKEN: ${{ secrets.JFROG_TOKEN }}
@@ -65,7 +79,9 @@ jobs:
 
           echo "Upload successful"
 
-      # 8. Deploy to DEV (FIXED SSH)
+      # =========================
+      # 8. Deploy to DEV (FIXED SSH STABILITY)
+      # =========================
       - name: Deploy to DEV Server
         uses: appleboy/ssh-action@v1.0.3
         with:
@@ -82,6 +98,7 @@ jobs:
 
             wget -O app.jar ${{ secrets.JFROG_URL }}/artifactory/libs-release-local/app.jar
 
-            nohup java -jar app.jar > app.log 2>&1 & disown
+            # 🔥 FIX: fully detach process from SSH session
+            setsid nohup java -jar app.jar > app.log 2>&1 < /dev/null &
 
-            echo "DEV deployment done successfully"
+            echo "DEV deployment completed successfully"
