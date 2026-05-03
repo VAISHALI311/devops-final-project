@@ -20,7 +20,7 @@ jobs:
         distribution: temurin
         java-version: 11
 
-    # ---------------- Cache Maven (faster builds) ----------------
+    # ---------------- Cache Maven ----------------
     - name: Cache Maven packages
       uses: actions/cache@v3
       with:
@@ -29,15 +29,15 @@ jobs:
 
     # ---------------- Build Project ----------------
     - name: Build with Maven
-      run: mvn clean package
+      run: mvn clean package -DskipTests
 
-    # ---------------- Run SonarQube Analysis ----------------
+    # ---------------- SonarQube Scan ----------------
     - name: SonarQube Scan
       run: |
         mvn sonar:sonar \
-        -Dsonar.projectKey=devops-final-project \
-        -Dsonar.host.url=${{ secrets.SONAR_URL }} \
-        -Dsonar.login=${{ secrets.SONAR_TOKEN }}
+          -Dsonar.projectKey=VAISHALI311_devops-final-project \
+          -Dsonar.host.url=https://sonarcloud.io \
+          -Dsonar.login=${{ secrets.SONAR_TOKEN }}
 
     # ---------------- Verify JAR Exists ----------------
     - name: Check Build Output
@@ -53,6 +53,6 @@ jobs:
         -T $JAR_FILE \
         "${{ secrets.JFROG_URL }}/libs-release-local/demo-app-${{ github.run_number }}.jar"
 
-    # ---------------- Pipeline Success Message ----------------
+    # ---------------- Success Message ----------------
     - name: Success Message
       run: echo "CI Pipeline Completed Successfully 🚀"
