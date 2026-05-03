@@ -1,91 +1,109 @@
-name: CI-CD Pipeline
+name: CI-CD Pipeline (DEV + PROD)
 
 on:
   push:
-    branches: ["main"]
+    branches:
+      - main
 
 jobs:
+
+# =========================
+# 1. BUILD + UPLOAD JAR
+# =========================
   build:
     runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
 
-      - uses: actions/setup-java@v4
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Java 17
+        uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: 17
 
-      - name: Build
+      - name: Build JAR
         run: mvn clean package -DskipTests
 
       - name: Upload to JFrog
-        env:
-          JFROG_URL: ${{ secrets.JFROG_URL }}
-          JFROG_TOKEN: ${{ secrets.JFROG_TOKEN }}
         run: |
-          JAR=$(ls target/*.jar | head -n 1)
+          curl -f -u "${{ secrets.JFROG_USER }}:${{ secrets.JFROG_TOKEN }}" \
+          -T target/*.jar \
+          "${{ secrets.JFROG_URL }}/artifactory/libs-release-local/app.jar"
 
-          curl -f -H "Authorization: Bearer $JFROG_TOKEN" \
-            -T "$JAR" \
-            "$JFROG_URL/artifactory/libs-release-local/app.jar"
-
+# =========================
+# 2. DEPLOY TO DEV
+# =========================
   deploy-dev:
     needs: build
     runs-on: ubuntu-latest
 
     steps:
-      - name: Deploy DEV
+      - name: Deploy to DEV Server
         uses: appleboy/ssh-action@v1.0.3
-        env:
-          JFROG_URL: ${{ secrets.JFROG_URL }}
-          JFROG_TOKEN: ${{ secrets.JFROG_TOKEN }}
         with:
-          host: ${{ secrets.HOST }}
+          host: ${{ secrets.DEV_HOST }}
           username: ubuntu
-          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          key: ${{ secrets.SSH_KEY }}
           envs: JFROG_URL,JFROG_TOKEN
           script: |
             set -e
-            echo "===== DEV DEPLOY ====="
+
+            echo "===== DEV DEPLOYMENT ====="
 
             sudo systemctl stop app || true
             rm -f /home/ubuntu/app/app.jar
             mkdir -p /home/ubuntu/app
 
-            curl -f -H "Authorization: Bearer $JFROG_TOKEN" \
+            curl -f \
+              -H "Authorization: Bearer $JFROG_TOKEN" \
               -o /home/ubuntu/app/app.jar \
               "$JFROG_URL/artifactory/libs-release-local/app.jar"
 
+            file /home/ubuntu/app/app.jar
+            ls -lh /home/ubuntu/app/app.jar
+
             sudo systemctl daemon-reload
             sudo systemctl restart app
+            sudo systemctl status app --no-pager
 
+            echo "===== DEV SUCCESS ====="
+
+# =========================
+# 3. DEPLOY TO PROD
+# =========================
   deploy-prod:
     needs: deploy-dev
     runs-on: ubuntu-latest
-    environment: production   # 🔥 THIS gives approval gate
 
     steps:
-      - name: Deploy PROD
+      - name: Deploy to PROD Server
         uses: appleboy/ssh-action@v1.0.3
-        env:
-          JFROG_URL: ${{ secrets.JFROG_URL }}
-          JFROG_TOKEN: ${{ secrets.JFROG_TOKEN }}
         with:
           host: ${{ secrets.PROD_HOST }}
           username: ubuntu
-          key: ${{ secrets.PROD_SSH_PRIVATE_KEY }}
+          key: ${{ secrets.SSH_KEY }}
           envs: JFROG_URL,JFROG_TOKEN
           script: |
             set -e
-            echo "===== PROD DEPLOY ====="
+
+            echo "===== PROD DEPLOYMENT ====="
 
             sudo systemctl stop app || true
             rm -f /home/ubuntu/app/app.jar
             mkdir -p /home/ubuntu/app
 
-            curl -f -H "Authorization: Bearer $JFROG_TOKEN" \
+            curl -f \
+              -H "Authorization: Bearer $JFROG_TOKEN" \
               -o /home/ubuntu/app/app.jar \
               "$JFROG_URL/artifactory/libs-release-local/app.jar"
 
+            file /home/ubuntu/app/app.jar
+            ls -lh /home/ubuntu/app/app.jar
+
             sudo systemctl daemon-reload
             sudo systemctl restart app
+            sudo systemctl status app --no-pager
+
+            echo "===== PROD SUCCESS ====="
