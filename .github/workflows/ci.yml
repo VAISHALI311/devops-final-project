@@ -40,7 +40,7 @@ jobs:
         run: mvn clean package -DskipTests
 
       # ---------------------------
-      # 5. SonarCloud Analysis
+      # 5. SonarCloud Scan
       # ---------------------------
       - name: SonarCloud Scan
         env:
@@ -59,9 +59,9 @@ jobs:
         run: ls -al target/
 
       # ---------------------------
-      # 7. Upload to JFrog
+      # 7. Upload to JFrog Artifactory
       # ---------------------------
-      - name: Upload to JFrog Artifactory
+      - name: Upload to JFrog
         env:
           JFROG_TOKEN: ${{ secrets.JFROG_TOKEN }}
           JFROG_URL: ${{ secrets.JFROG_URL }}
@@ -70,7 +70,7 @@ jobs:
 
           JAR_FILE=$(ls target/*.jar | head -n 1)
 
-          echo "Uploading $JAR_FILE"
+          echo "Uploading $JAR_FILE to JFrog..."
 
           curl -f \
             -H "Authorization: Bearer $JFROG_TOKEN" \
@@ -80,32 +80,41 @@ jobs:
           echo "Upload successful"
 
       # ---------------------------
-      # 8. Deploy to DEV (STABLE)
+      # 8. Deploy to DEV (FIXED + SECURE)
       # ---------------------------
       - name: Deploy to DEV via SSH
         uses: appleboy/ssh-action@v1.0.3
+        env:
+          JFROG_URL: ${{ secrets.JFROG_URL }}
+          JFROG_TOKEN: ${{ secrets.JFROG_TOKEN }}
         with:
           host: ${{ secrets.DEV_HOST }}
           username: ubuntu
           key: ${{ secrets.SSH_PRIVATE_KEY }}
+          envs: JFROG_URL,JFROG_TOKEN
           script: |
             set -e
 
             echo "=== DEPLOYING TO DEV ==="
 
-            # Stop service safely
+            # Stop app safely
             sudo systemctl stop app || true
 
-            # Create folder if not exists
+            # Prepare folder
             mkdir -p /home/ubuntu/app
-
-            # Remove old jar
             rm -f /home/ubuntu/app/app.jar
 
-            # Download latest jar from Artifactory
-            wget -O /home/ubuntu/app/app.jar ${{ secrets.JFROG_URL }}/artifactory/libs-release-local/app.jar
+            echo "Downloading artifact securely from JFrog..."
 
-            # Start service
+            # FIX: authenticated download (NO 401 error now)
+            curl -f \
+              -H "Authorization: Bearer $JFROG_TOKEN" \
+              -o /home/ubuntu/app/app.jar \
+              "$JFROG_URL/artifactory/libs-release-local/app.jar"
+
+            echo "Starting application..."
+
+            # Start systemd service
             sudo systemctl start app
 
             # Check status
