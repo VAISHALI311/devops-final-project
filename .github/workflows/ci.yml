@@ -9,39 +9,39 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # =========================
+      # ---------------------------
       # 1. Checkout Code
-      # =========================
+      # ---------------------------
       - name: Checkout Repository
         uses: actions/checkout@v4
 
-      # =========================
+      # ---------------------------
       # 2. Setup Java
-      # =========================
+      # ---------------------------
       - name: Set up JDK 17
         uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: 17
 
-      # =========================
-      # 3. Cache Maven Dependencies
-      # =========================
-      - name: Cache Maven
+      # ---------------------------
+      # 3. Cache Maven
+      # ---------------------------
+      - name: Cache Maven dependencies
         uses: actions/cache@v4
         with:
           path: ~/.m2
           key: ${{ runner.os }}-maven
 
-      # =========================
+      # ---------------------------
       # 4. Build Project
-      # =========================
+      # ---------------------------
       - name: Build with Maven
         run: mvn clean package -DskipTests
 
-      # =========================
+      # ---------------------------
       # 5. SonarCloud Analysis
-      # =========================
+      # ---------------------------
       - name: SonarCloud Scan
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
@@ -52,16 +52,16 @@ jobs:
             -Dsonar.host.url=https://sonarcloud.io \
             -Dsonar.token=$SONAR_TOKEN
 
-      # =========================
+      # ---------------------------
       # 6. Verify Build Output
-      # =========================
+      # ---------------------------
       - name: Verify build output
         run: ls -al target/
 
-      # =========================
+      # ---------------------------
       # 7. Upload to JFrog
-      # =========================
-      - name: Upload to JFrog
+      # ---------------------------
+      - name: Upload to JFrog Artifactory
         env:
           JFROG_TOKEN: ${{ secrets.JFROG_TOKEN }}
           JFROG_URL: ${{ secrets.JFROG_URL }}
@@ -79,26 +79,36 @@ jobs:
 
           echo "Upload successful"
 
-      # =========================
-      # 8. Deploy to DEV (STABLE FIX)
-      # =========================
-      - name: Deploy to DEV Server
+      # ---------------------------
+      # 8. Deploy to DEV (STABLE)
+      # ---------------------------
+      - name: Deploy to DEV via SSH
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.DEV_HOST }}
           username: ubuntu
           key: ${{ secrets.SSH_PRIVATE_KEY }}
-          port: 22
           script: |
-            echo "Deploying to DEV..."
+            set -e
 
-            pkill -f "app.jar" || true
+            echo "=== DEPLOYING TO DEV ==="
 
-            rm -f app.jar
+            # Stop service safely
+            sudo systemctl stop app || true
 
-            wget -O app.jar ${{ secrets.JFROG_URL }}/artifactory/libs-release-local/app.jar
+            # Create folder if not exists
+            mkdir -p /home/ubuntu/app
 
-            # 🔥 FINAL FIX: fully detached execution
-            nohup bash -c "java -jar app.jar > app.log 2>&1" </dev/null &
+            # Remove old jar
+            rm -f /home/ubuntu/app/app.jar
 
-            echo "DEV deployment triggered successfully"
+            # Download latest jar from Artifactory
+            wget -O /home/ubuntu/app/app.jar ${{ secrets.JFROG_URL }}/artifactory/libs-release-local/app.jar
+
+            # Start service
+            sudo systemctl start app
+
+            # Check status
+            sudo systemctl status app --no-pager
+
+            echo "=== DEPLOYMENT SUCCESSFUL ==="
