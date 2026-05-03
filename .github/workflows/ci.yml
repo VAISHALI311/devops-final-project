@@ -27,11 +27,11 @@ jobs:
           path: ~/.m2
           key: ${{ runner.os }}-maven
 
-      # 4. Build project
+      # 4. Build
       - name: Build with Maven
         run: mvn clean package -DskipTests
 
-      # 5. SonarCloud Analysis
+      # 5. SonarCloud
       - name: SonarCloud Scan
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
@@ -47,7 +47,7 @@ jobs:
         run: ls -al target/
 
       # 7. Upload to JFrog
-      - name: Upload to JFrog Artifactory
+      - name: Upload to JFrog
         env:
           JFROG_TOKEN: ${{ secrets.JFROG_TOKEN }}
           JFROG_URL: ${{ secrets.JFROG_URL }}
@@ -65,7 +65,7 @@ jobs:
 
           echo "Upload successful"
 
-      # 8. Deploy to DEV via SSH (FIXED)
+      # 8. Deploy to DEV (FIXED SSH)
       - name: Deploy to DEV Server
         uses: appleboy/ssh-action@v1.0.3
         with:
@@ -74,7 +74,7 @@ jobs:
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           port: 22
           script: |
-            echo "Starting DEV deployment..."
+            echo "Deploying to DEV..."
 
             pkill -f "app.jar" || true
 
@@ -84,4 +84,4 @@ jobs:
 
             nohup java -jar app.jar > app.log 2>&1 & disown
 
-            echo "DEV deployment completed successfully"
+            echo "DEV deployment done successfully"
